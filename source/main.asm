@@ -1,15 +1,13 @@
 include "hardware.inc"
-include "header.inc"
 
-section "rst",rom0[$0]
-waitvblank:
-.loop
+section "wait vbl rst",rom0[$0]
+waitVbl:
 	ld a, [rLY]
 	cp 144
-	jr c, .loop
+	jr c, waitVbl
 	reti
 
-section "vblank interrput",rom0[$0040]
+section "vbl interrput",rom0[$0040]
 	reti
 
 section "lcdc interrput",rom0[$0048]
@@ -51,13 +49,29 @@ section "game",rom0
 
 main:
 	di 
-	ld SP, $FFFF
 
+	; disable LCD
 	rst 0
 	xor a
 	ld [rLCDC], a
 
-	ld hl, $9000
+
+; 	mem_Copy::
+; 	inc	b
+; 	inc	c
+; 	jr	.skip
+; .loop	ld	a,[hl+]
+; 	ld	[de],a
+; 	inc	de
+; .skip	dec	c
+; 	jr	nz,.loop
+; 	dec	b
+; 	jr	nz,.loop
+; 	ret
+
+
+
+	ld hl, _VRAM8800
 	ld de, charas
 	ld bc, charas_end - charas
 .copyfont
@@ -69,18 +83,29 @@ main:
 	or c
 	jr nz, .copyfont
 
+	; declare palette
 	ld a, %11100100
 	ld [rBGP], a
 
+	; reset background scroll
 	xor a
 	ld [rSCY], a
 	ld [rSCY], a
 
+	; disable sound
 	ld [rNR52], a
-	ld a, %10000001
+
+	; enable LDC and background
+	ld a, LCDCF_ON|LCDCF_BGON
 	ld [rLCDC], a
 
 .lockup
+
+	;rst 0
+	;ld	a, [rSCX]
+	;inc	a
+	;ld	[rSCX], a
+
 	halt 
 	nop
 	jr .lockup
