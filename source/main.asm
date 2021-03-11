@@ -45,6 +45,24 @@ rept $150-$104
 	db 0
 endr
 
+section "common",rom0
+
+; memcpy
+; (in) de = address of source
+; (in) hl = address of destination
+; (in) c = number of bytes to copy
+; (out) de = will point to next after the last
+; (out) hl = will point to next after the last
+; (out) c = 0
+; (flags) !Z N
+memcpy::
+	ld a, [de]
+	ld [hli], a
+	inc de
+	dec c
+	jr nz, memcpy
+	ret
+
 section "game",rom0
 
 main:
@@ -55,33 +73,19 @@ main:
 	xor a
 	ld [rLCDC], a
 
-
-; 	mem_Copy::
-; 	inc	b
-; 	inc	c
-; 	jr	.skip
-; .loop	ld	a,[hl+]
-; 	ld	[de],a
-; 	inc	de
-; .skip	dec	c
-; 	jr	nz,.loop
-; 	dec	b
-; 	jr	nz,.loop
-; 	ret
-
-
-
+	; copy characters
 	ld hl, _VRAM8800
-	ld de, charas
-	ld bc, charas_end - charas
-.copyfont
-	ld a, [de]
-	ld [hli], a
-	inc de
-	dec bc
-	ld a, b
-	or c
-	jr nz, .copyfont
+	ld de, assets_overworld
+	ld c, 4*16
+	call memcpy
+
+	PRINT "TEMP create fake background"
+
+	; create temporary background
+	ld hl, _SCRN0
+	ld de, temp_background
+	ld c, 4
+	call memcpy
 
 	; declare palette
 	ld a, %11100100
@@ -101,17 +105,14 @@ main:
 
 .lockup
 
-	;rst 0
-	;ld	a, [rSCX]
-	;inc	a
-	;ld	[rSCX], a
-
 	halt 
 	nop
 	jr .lockup
 
 section "assets",rom0
 
-charas:
+assets_overworld:
 incbin "build/overworld.chr"
-charas_end:
+
+temp_background:
+	db 128,129,130,131
