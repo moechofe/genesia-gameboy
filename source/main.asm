@@ -47,7 +47,7 @@ endr
 
 section "common",rom0
 
-; memcpy
+; copy memory for less than 256 bytes
 ; (in) de = address of source
 ; (in) hl = address of destination
 ; (in) c = number of bytes to copy
@@ -55,12 +55,35 @@ section "common",rom0
 ; (out) hl = will point to next after the last
 ; (out) c = 0
 ; (flags) !Z N
-memcpy::
+memcpy_short::
 	ld a, [de]
 	ld [hli], a
 	inc de
 	dec c
-	jr nz, memcpy
+	jr nz, memcpy_short
+	ret
+
+; copy memory for more than 255 bytes
+; (in) de = address of source
+; (in) hl = address of destination
+; (in) bc = number of bytes to copy
+; (out) de = will point to next after the last
+; (out) hl = will point to next after the last
+; (out) c = 0
+; (flags) !Z N
+memcpy_long::
+	; Increment B if C is nonzero
+	dec bc
+	inc b
+	inc c
+.loop:
+	ld a, [de]
+	ld [hli], a
+	inc de
+	dec c
+	jr nz,.loop
+	dec b
+	jr nz,.loop
 	ret
 
 section "game",rom0
@@ -76,8 +99,8 @@ main:
 	; copy characters
 	ld hl, _VRAM8800
 	ld de, assets_overworld
-	ld c, 4*16
-	call memcpy
+	ld bc, 41*16
+	call memcpy_long
 
 	PRINT "TEMP create fake background"
 
@@ -85,7 +108,7 @@ main:
 	ld hl, _SCRN0
 	ld de, temp_background
 	ld c, 4
-	call memcpy
+	call memcpy_short
 
 	; declare palette
 	ld a, %11100100
