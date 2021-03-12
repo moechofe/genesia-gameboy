@@ -91,51 +91,9 @@ section "game",rom0
 main:
 	di 
 
-	; disable LCD
-	rst 0
-	xor a
-	ld [rLCDC], a
+	jp switch_to_overworld
 
-	; copy characters
-	ld hl, _VRAM8800
-	ld de, assets_overworld
-	ld bc, 41*16
-	call memcpy_long
-
-	PRINT "TEMP create fake background"
-
-	; create temporary background
-	ld hl, _SCRN0
-	ld de, temp_background
-	ld c, 4
-	call memcpy_short
-
-	; declare palette
-	ld a, %11100100
-	ld [rBGP], a
-
-	; reset background scroll
-	xor a
-	ld [rSCY], a
-	ld [rSCY], a
-
-	; disable sound
-	ld [rNR52], a
-
-	; enable LDC and background
-	ld a, LCDCF_ON|LCDCF_BGON
-	ld [rLCDC], a
-
-.lockup
-
-	halt 
-	nop
-	jr .lockup
-
-section "assets",rom0
-
-assets_overworld:
-incbin "build/overworld.chr"
-
-temp_background:
-	db 128,129,130,131
+; .lockup
+; 	halt 
+; 	nop
+; 	jr .lockup
