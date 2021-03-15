@@ -39,4 +39,4 @@ build/%.obj: source/%.asm
 	$(RGBASM) -Weverything -iinclude -ibuild -M$(@:.obj=.make) -o$@ $<
 
 build/overworld.chr: asset/overworld.png
-	$(RGBGFX) -u -o$@ $<
+	$(RGBGFX) -o$@ $<
