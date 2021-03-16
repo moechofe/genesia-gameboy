@@ -47,12 +47,6 @@ wMapPosX::
 wMapPosY::
 	db
 
-; address to ROM and RAM during copy
-wCopySrc::
-	dw
-wCopyDst::
-	dw
-
 
 section "assets",rom0
 
@@ -69,9 +63,11 @@ terrain_1st_chararters:
 	db 172 ; grass
 	db 194 ; stone
 
+
 ; map cells data
 first_background:
 incbin "build/first.bg"
+
 
 section "overworld code",romx
 
@@ -91,41 +87,49 @@ switch_to_overworld::
 	ld bc, 154*16
 	call memcpy_long
 
-	; initialize the source and dest variable for copy
-	ld a, HIGH(first_background)
-	ld [wCopySrc+0], a
-	ld a, LOW(first_background)
-	ld [wCopySrc+1], a
-	ld a, HIGH(_SCRN0)
-	ld [wCopyDst+0], a
-	ld a, LOW(_SCRN0)
-	ld [wCopyDst+1], a
+	; copy map tiles to background to fill the entire screen
+copy_whole_map_to_bg:
 
-	; load source and dest variable for copy
-	ld a, [wCopySrc+0]
+	; will copy 18 rows of background tiles
+	ld b, 18
+
+	; initialize source and destination for copy operation
+	ld a, HIGH(first_background)
 	ld d, a
-	ld a, [wCopySrc+1]
+	ld a, LOW(first_background)
 	ld e, a
-	ld a, [wCopyDst+0]
+
+	ld a, HIGH(_SCRN0)
 	ld h, a
-	ld a, [wCopyDst+1]
+	ld a, LOW(_SCRN0)
 	ld l, a
 
+.loop
 	; copy a line of background tile index
 	ld c, 20
 	call memcpy_short
 
-	; increase source and dest variable for copy to reach the next line
+	; one line down, check if copy is done
+	dec b
+	jr z, .done
 
-	; temporary store 
+	; increase source and destination to reach the next line
+	ld a, e
+	add 69
+	ld e, a
+	ld a, d
+	adc 0
+	ld d, a
 
+	ld a, l
+	add 12
+	ld l, a
+	ld a, h
+	adc 0
+	ld h, a
 
-	; TODO: redo
-	; skip the remaining bg tile
-	;ld b, 0
-	;ld c, 60
-	;add hl, bc
-
+	jr .loop
+.done:
 
 	; declare palette
 	ld a, %11100100
