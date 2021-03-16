@@ -70,6 +70,7 @@ memcpy_short::
 ; (out) de = will point to next after the last
 ; (out) hl = will point to next after the last
 ; (out) c = 0
+; (use) a
 ; (flags) !Z N
 memcpy_long::
 	; Increment B if C is nonzero

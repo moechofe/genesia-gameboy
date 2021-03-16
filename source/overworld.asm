@@ -1,22 +1,5 @@
 include "hardware.inc"
 
-section union "shared ram", wram0
-
-; map related
-; ===========
-
-; reverse position of the top-left tile
-wMapPosX::
-	ds 1
-wMapPosY::
-	ds 1
-
-
-section "assets",rom0
-
-; characters
-chars_overworld:
-incbin "build/overworld.chr"
 
 ; cells data
 ; indiquate what cell are made of
@@ -52,6 +35,32 @@ MAP_IS_BUILDING  equ %01111000
 ; totem               X-------
 MAP_TOTEM        equ %10000000
 
+
+section union "shared ram", wram0
+
+; map related
+; ===========
+
+; reverse position of the top-left tile
+wMapPosX::
+	db
+wMapPosY::
+	db
+
+; address to ROM and RAM during copy
+wCopySrc::
+	dw
+wCopyDst::
+	dw
+
+
+section "assets",rom0
+
+; characters
+chars_overworld:
+incbin "build/overworld.chr"
+
+
 ; for each cells data, give the 1st characters index
 ; characters stored at VRAM block 1 $8800
 terrain_1st_chararters:
@@ -61,13 +70,8 @@ terrain_1st_chararters:
 	db 194 ; stone
 
 ; map cells data
-map_01:
-	db MAP_SEA,MAP_SEA
-	db MAP_SEA,MAP_SEA
-
-; TODO: deleteme
-temp_background:
-	db 128,129,130,131
+first_background:
+incbin "build/first.bg"
 
 section "overworld code",romx
 
@@ -87,12 +91,41 @@ switch_to_overworld::
 	ld bc, 154*16
 	call memcpy_long
 
-	; create temporary background
-	; TODO: deleteme
-	ld hl, _SCRN0
-	ld de, temp_background
-	ld c, 4
+	; initialize the source and dest variable for copy
+	ld a, HIGH(first_background)
+	ld [wCopySrc+0], a
+	ld a, LOW(first_background)
+	ld [wCopySrc+1], a
+	ld a, HIGH(_SCRN0)
+	ld [wCopyDst+0], a
+	ld a, LOW(_SCRN0)
+	ld [wCopyDst+1], a
+
+	; load source and dest variable for copy
+	ld a, [wCopySrc+0]
+	ld d, a
+	ld a, [wCopySrc+1]
+	ld e, a
+	ld a, [wCopyDst+0]
+	ld h, a
+	ld a, [wCopyDst+1]
+	ld l, a
+
+	; copy a line of background tile index
+	ld c, 20
 	call memcpy_short
+
+	; increase source and dest variable for copy to reach the next line
+
+	; temporary store 
+
+
+	; TODO: redo
+	; skip the remaining bg tile
+	;ld b, 0
+	;ld c, 60
+	;add hl, bc
+
 
 	; declare palette
 	ld a, %11100100
@@ -107,14 +140,6 @@ switch_to_overworld::
 	xor a
 	ld [wMapPosX], a
 	ld [wMapPosY], a
-
-	; TODO I need a TEMP loop that will browse all visible tiles
-
-	; TODO then for each line or row, I need to know the map cell
-	; TODO then for the 1, 2 and 3 third of a cell, I need to know what tile index I need
-
-
-
 
 	; enable LDC and background
 	ld a, LCDCF_ON|LCDCF_BGON

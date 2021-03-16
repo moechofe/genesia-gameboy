@@ -9,6 +9,8 @@ RGBLINK:=$(shell which rgblink || which rgblink.exe)
 RGBFIX:=$(shell which rgbfix || which rgbfix.exe)
 RGBGFX:=$(shell which rgbgfx || which rgbgfx.exe)
 
+CSVMAP:=$(shell which tools/convert_map_csv_to_binary/convert_map_csv_to_binary || which tools/convert_map_csv_to_binary/convert_map_csv_to_binary.exe)
+
 $(info RGBASM= $(shell $(RGBASM) -V))
 $(info RGBLINK= $(shell $(RGBLINK) -V))
 $(info RGBFIX= $(shell $(RGBFIX) -V))
@@ -38,5 +40,8 @@ build/%.obj: source/%.asm
 	mkdir -p $(dir $@)
 	$(RGBASM) -Weverything -iinclude -ibuild -M$(@:.obj=.make) -o$@ $<
 
-build/overworld.chr: asset/overworld.png
+build/%.chr: asset/%.png
 	$(RGBGFX) -o$@ $<
+
+build/%.bg: asset/%.csv
+	$(CSVMAP) < $< > $@
