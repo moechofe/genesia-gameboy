@@ -1,32 +1,73 @@
 include "hardware.inc"
 
-section "wait vbl rst",rom0[$0]
+
+section union "sprites ram", wram0, align[8]
+
+; buffer for sprites states
+wOAMBuffer::
+	ds OAM_COUNT * sizeof_OAM_ATTRS
+.end:
+
+	
+section "shared ram", wram0
+
+; frame counter
+wFrameCounter::
+	db
+
+section "ui assets", rom0
+
+; characters
+chars_ui:
+incbin "build/ui.chr"
+.end:
+
+
+section "wait vbl rst", rom0[$0]
 waitVbl:
 	ld a, [rLY]
 	cp 144
 	jr c, waitVbl
 	reti
 
-section "vbl interrput",rom0[$0040]
+
+section "vbl interrput", rom0[$0040]
+	push af ; bytecode - 1 byte
+	ld a, [wFrameCounter] ; bytecode - 3 bytes
+	inc a ; bytecode - 1 byte
+	jp vbl_handler ; bytecode - 3 bytes
+	; = 8 bytes total
+
+
+section "vbl handler", rom0
+vbl_handler:
+	ld [wFrameCounter], a
+	pop af
 	reti
 
-section "lcdc interrput",rom0[$0048]
+
+section "lcdc interrput", rom0[$0048]
 	reti
 
-section "timer interrput",rom0[$0050]
+
+section "timer interrput", rom0[$0050]
 	reti
 
-section "serial interrput",rom0[$0058]
+
+section "serial interrput", rom0[$0058]
 	reti
 
-section "joypad interrput",rom0[$0060]
+
+section "joypad interrput", rom0[$0060]
 	reti
 
-section "entrypoint",rom0[$100]
+
+section "entrypoint", rom0[$100]
 	nop
 	jp main
 
-section "rom header",rom0[$0104]
+
+section "rom header", rom0[$0104]
 	NINTENDO_LOGO
 	DB "GenesiaBoy     " ; Cart name - 15 characters / 15 bytes
 	DB 0 ; $143 - GBC support. $80 = both. $C0 = only gbc
@@ -45,7 +86,8 @@ rept $150-$104
 	db 0
 endr
 
-section "common",rom0
+
+section "common", rom0
 
 ; copy memory for less than 256 bytes
 ; (in) de = address of source
@@ -82,15 +124,76 @@ memcpy_long::
 	ld [hli], a
 	inc de
 	dec c
-	jr nz,.loop
+	jr nz, .loop
 	dec b
-	jr nz,.loop
+	jr nz, .loop
 	ret
 
-section "game",rom0
+; this routine will copied to HRAM, 
+oam_copy_routine:
+LOAD "hram", HRAM
+copy_sprites::
+  ld a, HIGH(wOAMBuffer)
+  ldh [rDMA], a
+  ld a, $28
+.wait:
+  dec a
+  jr nz, .wait
+  ret
+.end:
+ENDL
+
+
+section "game", rom0
 
 main:
 	di 
+
+	; initialize variables
+	xor a
+	ld [wFrameCounter], a
+
+	; disable LCD
+	rst 0
+	xor a
+	ld [rLCDC], a	
+
+	; copy characters
+	ld hl, _VRAM8000
+	ld de, chars_ui
+	ld bc, chars_ui.end - chars_ui
+	call memcpy_short
+
+	; declare palette
+	ld a, %11010000
+	ld [rOBP0], a
+
+	; initialize the sprites buffer
+	; TODO: can reduce code by start at the end and compare when reach the begining
+clear_sprites_buffer:
+	ld hl, wOAMBuffer
+	ld c, wOAMBuffer.end - wOAMBuffer
+	xor a
+.loop:
+	ld [hl+], a
+	dec c
+	jr nz, .loop
+  
+	; install the sprites copy routine to HRAM
+	; TODO: can I use my regular memcpy_short here?
+install_oam_copy_routine:
+	ld hl, copy_sprites
+	ld de, oam_copy_routine
+	ld c, copy_sprites.end - copy_sprites
+.loop:
+	ld a, [de]
+	inc de
+	ld [hl+], a
+	dec c
+	jr nz, .loop
+
+	; clear sprites now
+	call copy_sprites
 
 	jp switch_to_overworld
 

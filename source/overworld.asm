@@ -36,23 +36,40 @@ MAP_IS_BUILDING  equ %01111000
 MAP_TOTEM        equ %10000000
 
 
-section union "shared ram", wram0
+section union "unioned ram", wram0
 
-; map related
-; ===========
-
-; reverse position of the top-left tile
-wMapPosX::
+; reverse position of the top-left tile of the map
+wMapPosX:
 	db
-wMapPosY::
+wMapPosY:
+	db
+; store the bit of the wFrameCounter
+wMapCursorBlinkSave:
+	db
+; custom counter to make the map cursor blink
+wMapCursorBlinkCount:
 	db
 
 
-section "assets",rom0
+section union "sprites ram", wram0, align[8]
+
+; cursor on the map
+wMapCursorTL: ; Top Left corner
+	ds sizeof_OAM_ATTRS
+wMapCursorTR: ; Top Right corner
+	ds sizeof_OAM_ATTRS
+wMapCursorBL: ; Bottom Left corner
+	ds sizeof_OAM_ATTRS
+wMapCursorBR: ; Bottom Right corner
+	ds sizeof_OAM_ATTRS
+
+
+section "overworld assets", rom0
 
 ; characters
 chars_overworld:
 incbin "build/overworld.chr"
+.end:
 
 
 ; for each cells data, give the 1st characters index
@@ -69,14 +86,20 @@ first_background:
 incbin "build/first.bg"
 
 
-section "overworld code",romx
+section "overworld code", romx
 
 switch_to_overworld::
 
+	; initialize variables
+	xor 0
+	ld [wMapCursorBlinkSave], a
+	ld [wMapCursorBlinkCount], a
+
 	; disable LCD
-	rst 0
-	xor a
-	ld [rLCDC], a
+	; TODO: already done in main.asm
+	;rst 0
+	;xor a
+	;ld [rLCDC], a
 
 	; disable sound
 	ld [rNR52], a
@@ -84,7 +107,7 @@ switch_to_overworld::
 	; copy characters
 	ld hl, _VRAM8800
 	ld de, chars_overworld
-	ld bc, 154*16
+	ld bc, chars_overworld.end - chars_overworld
 	call memcpy_long
 
 	; copy map tiles to background to fill the entire screen
@@ -145,11 +168,77 @@ copy_whole_map_to_bg:
 	ld [wMapPosX], a
 	ld [wMapPosY], a
 
-	; enable LDC and background
-	ld a, LCDCF_ON|LCDCF_BGON
+	; setup cell cursor on map
+
+	ld a, 7*8 + 8 - 6
+	ld [wMapCursorTL + OAMA_Y], a
+	ld [wMapCursorTR + OAMA_Y], a
+
+	ld a, 7*8 + 8 + 16 - 2
+	ld [wMapCursorBL + OAMA_Y], a
+	ld [wMapCursorBR + OAMA_Y], a
+
+	ld a, 7*8 - 6
+	ld [wMapCursorTL + OAMA_X], a
+	ld [wMapCursorBL + OAMA_X], a
+
+	ld a, 7*8 + 16 - 2
+	ld [wMapCursorTR + OAMA_X], a
+	ld [wMapCursorBR + OAMA_X], a
+
+	ld a, 0
+	ld [wMapCursorTL + OAMA_TILEID], a
+	ld [wMapCursorTR + OAMA_TILEID], a
+	ld [wMapCursorBL + OAMA_TILEID], a
+	ld [wMapCursorBR + OAMA_TILEID], a
+
+	ld a, 0
+	ld [wMapCursorTL + OAMA_FLAGS], a
+
+	ld a, OAMF_XFLIP
+	ld [wMapCursorTR + OAMA_FLAGS], a
+
+	ld a, OAMF_YFLIP
+	ld [wMapCursorBL + OAMA_FLAGS], a
+
+	ld a, OAMF_YFLIP|OAMF_XFLIP
+	ld [wMapCursorBR + OAMA_FLAGS], a
+
+	call copy_sprites
+
+	; setup timer
+	xor a
+	ld [rTMA], a
+	ld [rTIMA], a
+	ld a, TACF_START|TACF_4KHZ
+	ld [rTAC], a
+
+	; setup VBL interrupt
+	ld a, IEF_VBLANK
+	ld [rIE], a
+	ei
+
+	; enable LDC, background and sprites
+	ld a, LCDCF_ON|LCDCF_BGON|LCDCF_OBJON
 	ld [rLCDC], a
 
 .lockup
-	halt 
+	halt
+
+	; count frames and detect a custom timer
+	ld a, [wMapCursorBlinkSave]
+	ld b, a
+	ld a, [wFrameCounter]
+	and %100
+	xor b
+	jr z, .lockup
+	; TODO: instead of storing register a, I need to complement the 3rd bit %100
+	ld a, [wMapCursorBlinkSave]
+	xor %100
+	ld [wMapCursorBlinkSave], a
+	ld a, [wMapCursorBlinkCount]
+	inc a
+	ld [wMapCursorBlinkCount], a
+
 	nop
 	jr .lockup
