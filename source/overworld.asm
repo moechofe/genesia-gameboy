@@ -43,12 +43,13 @@ wMapPosX:
 	db
 wMapPosY:
 	db
-; store the bit of the wFrameCounter
-wMapCursorBlinkSave:
+; detect one bit changes frome the wFrameCounter
+wMapCursorBlink5:
 	db
 ; custom counter to make the map cursor blink
-wMapCursorBlinkCount:
-	db
+; TODO: I don't need that yet
+;wMapCursorBlinkCount:
+	;db
 
 
 section union "sprites ram", wram0, align[8]
@@ -92,8 +93,8 @@ switch_to_overworld::
 
 	; initialize variables
 	xor 0
-	ld [wMapCursorBlinkSave], a
-	ld [wMapCursorBlinkCount], a
+	ld [wMapCursorBlink5], a
+	;ld [wMapCursorBlinkCount], a
 
 	; disable LCD
 	; TODO: already done in main.asm
@@ -170,6 +171,8 @@ copy_whole_map_to_bg:
 
 	; setup cell cursor on map
 
+	; TODO: use the variable for the map cursor
+
 	ld a, 7*8 + 8 - 6
 	ld [wMapCursorTL + OAMA_Y], a
 	ld [wMapCursorTR + OAMA_Y], a
@@ -225,20 +228,20 @@ copy_whole_map_to_bg:
 .lockup
 	halt
 
-	; count frames and detect a custom timer
-	ld a, [wMapCursorBlinkSave]
+	; compute blink animation for the map cursor
+	ld a, [wMapCursorBlink5]
 	ld b, a
 	ld a, [wFrameCounter]
-	and %100
-	xor b
+	and %10000 ; for the speed
+	ld c, a ; 2 steps animation
+	xor b ; detect steps change
 	jr z, .lockup
-	; TODO: instead of storing register a, I need to complement the 3rd bit %100
-	ld a, [wMapCursorBlinkSave]
-	xor %100
-	ld [wMapCursorBlinkSave], a
-	ld a, [wMapCursorBlinkCount]
-	inc a
-	ld [wMapCursorBlinkCount], a
+	ld a, [wMapCursorBlink5]
+	xor %10000
+	ld [wMapCursorBlink5], a
+
+	; update map cursor animation step
+
 
 	nop
 	jr .lockup
