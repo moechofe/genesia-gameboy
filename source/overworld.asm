@@ -54,9 +54,6 @@ wMapCursorScreenY:
 ; map cursor blink animation state
 wMapCursorBlink:
 	db
-; map cursor pixel expand count [0,1]
-wMapCursorExpand:
-	db
 
 
 
@@ -108,7 +105,6 @@ switch_to_overworld::
 	xor 0
 	ld [wFrameCounter], a
 	ld [wMapCursorBlink], a
-	ld [wMapCursorExpand], a
 
 	; TODO: temporary map cursor screen position
 	; TODO: can probably join with the setup of the map cursor
@@ -192,22 +188,22 @@ copy_whole_map_to_bg:
 	ld c, a
 
 	ld a, c
-	add 4
+	add 3
 	ld [wMapCursorTL + OAMA_Y], a
 	ld [wMapCursorTR + OAMA_Y], a
 
 	ld a, c
-	add 20
+	add 21
 	ld [wMapCursorBL + OAMA_Y], a
 	ld [wMapCursorBR + OAMA_Y], a
 
 	ld a, b
-	sub 4
+	sub 5
 	ld [wMapCursorTL + OAMA_X], a
 	ld [wMapCursorBL + OAMA_X], a
 
 	ld a, b
-	add 12
+	add 13
 	ld [wMapCursorTR + OAMA_X], a
 	ld [wMapCursorBR + OAMA_X], a
 
@@ -240,6 +236,25 @@ copy_whole_map_to_bg:
 	ld [rLCDC], a
 
 .lockup
+
+	; update map cursor animation
+	; TODO: change that fast ⚠️
+	; TODO: Use a second tile, it will cost to update only the OAMA_TILEID for 4 sprites
+
+
+	
+	ld a, [wMapCursorBlink]
+	cp 0
+	ld a, 0 ; flags not modified
+	jr z, :+
+	inc a
+:
+	ld [wMapCursorTL + OAMA_TILEID], a
+	ld [wMapCursorTR + OAMA_TILEID], a
+	ld [wMapCursorBL + OAMA_TILEID], a
+	ld [wMapCursorBR + OAMA_TILEID], a
+
+	; wait for the next frame
 	halt
 
 	; compute blink animation for the map cursor
@@ -255,48 +270,6 @@ copy_whole_map_to_bg:
 	ld a, [wMapCursorBlink]
 	xor %10000
 	ld [wMapCursorBlink], a
-	ld a, c
-	rra 
-	rra 
-	rra 
-	rra ; transform the potential %10000 to %1
-	ld [wMapCursorExpand], a
-
-	; update map cursor animation
-	; TODO: change that fast ⚠️
-	; TODO: Use a second tile, it will cost to update only the OAMA_TILEID for 4 sprites
-
-	ld a, [wMapCursorExpand]
-	ld d, a
-
-	ld a, [wMapCursorScreenX]
-	ld b, a
-	ld a, [wMapCursorScreenY]
-	ld c, a
-	
-	ld a, c
-	add 4
-	add d
-	ld [wMapCursorTL + OAMA_Y], a
-	ld [wMapCursorTR + OAMA_Y], a
-
-	ld a, c
-	add 20
-	sub d
-	ld [wMapCursorBL + OAMA_Y], a
-	ld [wMapCursorBR + OAMA_Y], a
-
-	ld a, b
-	sub 4
-	add d
-	ld [wMapCursorTL + OAMA_X], a
-	ld [wMapCursorBL + OAMA_X], a
-
-	ld a, b
-	add 12
-	sub d
-	ld [wMapCursorTR + OAMA_X], a
-	ld [wMapCursorBR + OAMA_X], a	
 
 	; TODO: Can I detect if I got enough time dring VBlank to do my stuff?
 	; TODO: Remove that when code is done
