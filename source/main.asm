@@ -9,12 +9,6 @@ wOAMBuffer::
 .end:
 
 	
-section "shared ram", wram0
-
-; frame counter
-wFrameCounter::
-	db
-
 section "ui assets", rom0
 
 ; characters
@@ -29,37 +23,6 @@ waitVbl:
 	cp 144
 	jr c, waitVbl
 	ret
-
-
-section "vbl interrput", rom0[$0040]
-	push af ; bytecode - 1 byte
-	ld a, [wFrameCounter] ; bytecode - 3 bytes
-	inc a ; bytecode - 1 byte
-	jp vbl_handler ; bytecode - 3 bytes
-	; = 8 bytes total
-
-
-section "vbl handler", rom0
-vbl_handler:
-	ld [wFrameCounter], a
-	pop af
-	reti
-
-
-; section "lcdc interrput", rom0[$0048]
-; 	reti
-
-
-; section "timer interrput", rom0[$0050]
-; 	reti
-
-
-; section "serial interrput", rom0[$0058]
-; 	reti
-
-
-; section "joypad interrput", rom0[$0060]
-; 	reti
 
 
 section "entrypoint", rom0[$100]

@@ -285,6 +285,8 @@ copy_whole_map_to_bg:
 	ld a, [wMapCursorBlink]
 	ld b, a
 	ld a, [wFrameCounter]
+	inc a
+	ld [wFrameCounter], a
 	and %10000 ; for the speed
 	ld c, a ; 2 steps animation
 	xor b ; detect steps change
