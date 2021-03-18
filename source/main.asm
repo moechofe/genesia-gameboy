@@ -28,7 +28,7 @@ waitVbl:
 	ld a, [rLY]
 	cp 144
 	jr c, waitVbl
-	reti
+	ret
 
 
 section "vbl interrput", rom0[$0040]
@@ -46,20 +46,20 @@ vbl_handler:
 	reti
 
 
-section "lcdc interrput", rom0[$0048]
-	reti
+; section "lcdc interrput", rom0[$0048]
+; 	reti
 
 
-section "timer interrput", rom0[$0050]
-	reti
+; section "timer interrput", rom0[$0050]
+; 	reti
 
 
-section "serial interrput", rom0[$0058]
-	reti
+; section "serial interrput", rom0[$0058]
+; 	reti
 
 
-section "joypad interrput", rom0[$0060]
-	reti
+; section "joypad interrput", rom0[$0060]
+; 	reti
 
 
 section "entrypoint", rom0[$100]
@@ -115,7 +115,7 @@ memcpy_short::
 ; (use) a
 ; (flags) !Z N
 memcpy_long::
-	; Increment B if C is nonzero
+	; increment b if c is nonzero
 	dec bc
 	inc b
 	inc c
@@ -128,6 +128,35 @@ memcpy_long::
 	dec b
 	jr nz, .loop
 	ret
+
+; read game pad input
+; (out) a = from high to low bit: Start - Select - B - A - Down - Up - Left - Right
+; (use) b
+; (use) hl
+; (flags) Z? N?
+read_input::
+    ld hl, rP1
+	ld [hl], P1F_GET_BTN
+    ld a, [hl]
+    ld a, [hl]
+    cpl
+    and %1111
+	ld b, a
+
+    ld [hl], P1F_GET_DPAD
+    ld a, [hl]
+    ld a, [hl]
+    ld a, [hl]
+    ld a, [hl]
+    ld a, [hl]
+    ld a, [hl]
+
+	ld [hl], P1F_GET_NONE
+    cpl
+    and %1111
+    swap a
+    or b
+    ret
 
 ; this routine will copied to HRAM, 
 oam_copy_routine:

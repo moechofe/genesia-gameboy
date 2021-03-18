@@ -43,14 +43,17 @@ wMapPosX:
 	db
 wMapPosY:
 	db
-; detect one bit changes frome the wFrameCounter
-wMapCursorBlink5:
+; map cursor coords in screen coordinates
+wMapCursorScreenX:
 	db
-; custom counter to make the map cursor blink
-; TODO: I don't need that yet
-;wMapCursorBlinkCount:
-	;db
-
+wMapCursorScreenY:
+	db
+; map cursor blink animation state
+wMapCursorBlink:
+	db
+; map cursor pixel expand count [0,1]
+wMapCursorExpand:
+	db
 
 section union "sprites ram", wram0, align[8]
 
@@ -93,8 +96,15 @@ switch_to_overworld::
 
 	; initialize variables
 	xor 0
-	ld [wMapCursorBlink5], a
-	;ld [wMapCursorBlinkCount], a
+	ld [wMapCursorBlink], a
+	ld [wMapCursorExpand], a
+
+	; TODO: temporary map cursor screen position
+	; TODO: can probably join with the setup of the map cursor
+	ld a, 4*8
+	ld [wMapCursorScreenX], a
+	ld a, 13*8
+	ld [wMapCursorScreenY], a
 
 	; disable LCD
 	; TODO: already done in main.asm
@@ -171,31 +181,39 @@ copy_whole_map_to_bg:
 
 	; setup cell cursor on map
 
+	ld a, [wMapCursorScreenX]
+	ld b, a
+	ld a, [wMapCursorScreenY]
+	ld c, a
+
 	; TODO: use the variable for the map cursor
 
-	ld a, 7*8 + 8 - 6
+	ld a, c
+	add 4
 	ld [wMapCursorTL + OAMA_Y], a
 	ld [wMapCursorTR + OAMA_Y], a
 
-	ld a, 7*8 + 8 + 16 - 2
+	ld a, c
+	add 20
 	ld [wMapCursorBL + OAMA_Y], a
 	ld [wMapCursorBR + OAMA_Y], a
 
-	ld a, 7*8 - 6
+	ld a, b
+	sub 4
 	ld [wMapCursorTL + OAMA_X], a
 	ld [wMapCursorBL + OAMA_X], a
 
-	ld a, 7*8 + 16 - 2
+	ld a, b
+	add 12
 	ld [wMapCursorTR + OAMA_X], a
 	ld [wMapCursorBR + OAMA_X], a
 
-	ld a, 0
+	xor a
 	ld [wMapCursorTL + OAMA_TILEID], a
 	ld [wMapCursorTR + OAMA_TILEID], a
 	ld [wMapCursorBL + OAMA_TILEID], a
 	ld [wMapCursorBR + OAMA_TILEID], a
 
-	ld a, 0
 	ld [wMapCursorTL + OAMA_FLAGS], a
 
 	ld a, OAMF_XFLIP
@@ -210,11 +228,11 @@ copy_whole_map_to_bg:
 	call copy_sprites
 
 	; setup timer
-	xor a
-	ld [rTMA], a
-	ld [rTIMA], a
-	ld a, TACF_START|TACF_4KHZ
-	ld [rTAC], a
+	;xor a
+	;ld [rTMA], a
+	;ld [rTIMA], a
+	;ld a, TACF_START|TACF_4KHZ
+	;ld [rTAC], a
 
 	; setup VBL interrupt
 	ld a, IEF_VBLANK
@@ -225,23 +243,71 @@ copy_whole_map_to_bg:
 	ld a, LCDCF_ON|LCDCF_BGON|LCDCF_OBJON
 	ld [rLCDC], a
 
+
+	; update map cursor animation
+
+	ld a, [wMapCursorExpand]
+	ld d, a
+
+	ld a, [wMapCursorScreenX]
+	ld b, a
+	ld a, [wMapCursorScreenY]
+	ld c, a
+	
+	ld a, c
+	add 4
+	add d
+	ld [wMapCursorTL + OAMA_Y], a
+	ld [wMapCursorTR + OAMA_Y], a
+
+	ld a, c
+	add 20
+	sub d
+	ld [wMapCursorBL + OAMA_Y], a
+	ld [wMapCursorBR + OAMA_Y], a
+
+	ld a, b
+	sub 4
+	add d
+	ld [wMapCursorTL + OAMA_X], a
+	ld [wMapCursorBL + OAMA_X], a
+
+	ld a, b
+	add 12
+	sub d
+	ld [wMapCursorTR + OAMA_X], a
+	ld [wMapCursorBR + OAMA_X], a
+
 .lockup
 	halt
 
 	; compute blink animation for the map cursor
-	ld a, [wMapCursorBlink5]
+	ld a, [wMapCursorBlink]
 	ld b, a
 	ld a, [wFrameCounter]
 	and %10000 ; for the speed
 	ld c, a ; 2 steps animation
 	xor b ; detect steps change
 	jr z, .lockup
-	ld a, [wMapCursorBlink5]
+	ld a, [wMapCursorBlink]
 	xor %10000
-	ld [wMapCursorBlink5], a
+	ld [wMapCursorBlink], a
+	ld a, c
+	rra 
+	rra 
+	rra 
+	rra 
+	ld [wMapCursorExpand], a
 
-	; update map cursor animation step
+	; TODO: temporary check for mode 1
+	ld a, [rSTAT]
+	and STATF_MODE01
+	jr z, .is_mode_1
+.is_not_mode_1:
+	halt 
+	jr .is_not_mode_1
+.is_mode_1:
 
+	call copy_sprites
 
-	nop
 	jr .lockup
