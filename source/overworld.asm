@@ -1,10 +1,7 @@
 include "hardware.inc"
 
-
 ; cells data
-; indiquate what cell are made of
-; generally a terrain
-; optionally something on it
+; indiquate what cell are made of, generally a terrain with optionally something on it
 
 ; terrain             ------XX
 MAP_SEA          equ %00000000
@@ -36,9 +33,15 @@ MAP_IS_BUILDING  equ %01111000
 MAP_TOTEM        equ %10000000
 
 
-section union "unioned ram", wram0
 
+section union "unioned ram", wram0
+;=================================
+
+; frame counter used for animation
+wFrameCounter:
+	db
 ; reverse position of the top-left tile of the map
+; TODO: not used yet
 wMapPosX:
 	db
 wMapPosY:
@@ -55,7 +58,10 @@ wMapCursorBlink:
 wMapCursorExpand:
 	db
 
+
+
 section union "sprites ram", wram0, align[8]
+;===========================================
 
 ; cursor on the map
 wMapCursorTL: ; Top Left corner
@@ -68,7 +74,9 @@ wMapCursorBR: ; Bottom Right corner
 	ds sizeof_OAM_ATTRS
 
 
+
 section "overworld assets", rom0
+;===============================
 
 ; characters
 chars_overworld:
@@ -90,12 +98,15 @@ first_background:
 incbin "build/first.bg"
 
 
+
 section "overworld code", romx
+;=============================
 
 switch_to_overworld::
 
 	; initialize variables
 	xor 0
+	ld [wFrameCounter], a
 	ld [wMapCursorBlink], a
 	ld [wMapCursorExpand], a
 
@@ -105,12 +116,6 @@ switch_to_overworld::
 	ld [wMapCursorScreenX], a
 	ld a, 13*8
 	ld [wMapCursorScreenY], a
-
-	; disable LCD
-	; TODO: already done in main.asm
-	;rst 0
-	;xor a
-	;ld [rLCDC], a
 
 	; disable sound
 	ld [rNR52], a
@@ -186,8 +191,6 @@ copy_whole_map_to_bg:
 	ld a, [wMapCursorScreenY]
 	ld c, a
 
-	; TODO: use the variable for the map cursor
-
 	ld a, c
 	add 4
 	ld [wMapCursorTL + OAMA_Y], a
@@ -227,13 +230,6 @@ copy_whole_map_to_bg:
 
 	call copy_sprites
 
-	; setup timer
-	;xor a
-	;ld [rTMA], a
-	;ld [rTIMA], a
-	;ld a, TACF_START|TACF_4KHZ
-	;ld [rTAC], a
-
 	; setup VBL interrupt
 	ld a, IEF_VBLANK
 	ld [rIE], a
@@ -243,8 +239,32 @@ copy_whole_map_to_bg:
 	ld a, LCDCF_ON|LCDCF_BGON|LCDCF_OBJON
 	ld [rLCDC], a
 
+.lockup
+	halt
+
+	; compute blink animation for the map cursor
+	ld a, [wMapCursorBlink]
+	ld b, a
+	ld a, [wFrameCounter]
+	inc a
+	ld [wFrameCounter], a
+	and %10000 ; for the speed
+	ld c, a ; 2 steps animation
+	xor b ; detect steps change
+	jr z, .lockup
+	ld a, [wMapCursorBlink]
+	xor %10000
+	ld [wMapCursorBlink], a
+	ld a, c
+	rra 
+	rra 
+	rra 
+	rra ; transform the potential %10000 to %1
+	ld [wMapCursorExpand], a
 
 	; update map cursor animation
+	; TODO: change that fast ⚠️
+	; TODO: Use a second tile, it will cost to update only the OAMA_TILEID for 4 sprites
 
 	ld a, [wMapCursorExpand]
 	ld d, a
@@ -276,32 +296,11 @@ copy_whole_map_to_bg:
 	add 12
 	sub d
 	ld [wMapCursorTR + OAMA_X], a
-	ld [wMapCursorBR + OAMA_X], a
+	ld [wMapCursorBR + OAMA_X], a	
 
-.lockup
-	halt
-
-	; compute blink animation for the map cursor
-	ld a, [wMapCursorBlink]
-	ld b, a
-	ld a, [wFrameCounter]
-	inc a
-	ld [wFrameCounter], a
-	and %10000 ; for the speed
-	ld c, a ; 2 steps animation
-	xor b ; detect steps change
-	jr z, .lockup
-	ld a, [wMapCursorBlink]
-	xor %10000
-	ld [wMapCursorBlink], a
-	ld a, c
-	rra 
-	rra 
-	rra 
-	rra 
-	ld [wMapCursorExpand], a
-
-	; TODO: temporary check for mode 1
+	; TODO: Can I detect if I got enough time dring VBlank to do my stuff?
+	; TODO: Remove that when code is done
+	; TODO: Temporary check for mode 1
 	ld a, [rSTAT]
 	and STATF_MODE01
 	jr z, .is_mode_1

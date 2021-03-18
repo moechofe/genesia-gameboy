@@ -1,15 +1,19 @@
 include "hardware.inc"
 
 
+
 section union "sprites ram", wram0, align[8]
+;===========================================
 
 ; buffer for sprites states
 wOAMBuffer::
 	ds OAM_COUNT * sizeof_OAM_ATTRS
 .end:
 
+
 	
 section "ui assets", rom0
+;=========================
 
 ; characters
 chars_ui:
@@ -17,7 +21,10 @@ incbin "build/ui.chr"
 .end:
 
 
+
 section "wait vbl rst", rom0[$0]
+;===============================
+; TODO: It probably do not worth it
 waitVbl:
 	ld a, [rLY]
 	cp 144
@@ -25,12 +32,22 @@ waitVbl:
 	ret
 
 
+
+section "vbl interrput", rom0[$40]
+;=================================
+	reti
+
+
+	
 section "entrypoint", rom0[$100]
+;===============================
 	nop
 	jp main
 
 
+
 section "rom header", rom0[$0104]
+;===============================
 	NINTENDO_LOGO
 	DB "GenesiaBoy     " ; Cart name - 15 characters / 15 bytes
 	DB 0 ; $143 - GBC support. $80 = both. $C0 = only gbc
@@ -50,7 +67,9 @@ rept $150-$104
 endr
 
 
+
 section "common", rom0
+;=====================
 
 ; copy memory for less than 256 bytes
 ; (in) de = address of source
@@ -123,7 +142,7 @@ read_input::
 
 ; this routine will copied to HRAM, 
 oam_copy_routine:
-LOAD "hram", HRAM
+load "hram", hram
 copy_sprites::
   ld a, HIGH(wOAMBuffer)
   ldh [rDMA], a
@@ -136,14 +155,12 @@ copy_sprites::
 ENDL
 
 
+
 section "game", rom0
+;===================
 
 main:
-	di 
-
-	; initialize variables
-	xor a
-	ld [wFrameCounter], a
+	di
 
 	; disable LCD
 	rst 0
@@ -189,7 +206,3 @@ install_oam_copy_routine:
 
 	jp switch_to_overworld
 
-; .lockup
-; 	halt 
-; 	nop
-; 	jr .lockup
